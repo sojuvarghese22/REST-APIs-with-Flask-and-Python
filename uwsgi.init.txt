@@ -1,0 +1,6 @@
+[uwsgi]
+http-socket = :$(PORT)
+master = true
+die_on_term = true
+module = firstprogram:app
+memory_report = true
