@@ -35,24 +35,56 @@ class Item(Resource):
         return {'message': 'item already exists'}
         
     
-    @jwt_required()  #for not accessing directly if user is authenticated then only he will be authorize for this service
+    #@jwt_required()  #for not accessing directly if user is authenticated then only he will be authorize for this service
+    
     def delete(self, name):
-        global items
-        items = list(filter(lambda x: x['name'] != name, items))
+        connection = sqlite3.connect('data.db')
+        cursor = connection.cursor()
+        query = "DELETE from items WHERE name=?"
+        cursor.execute(query, (name,))
+        connection.commit()
+        connection.close()
         return {'message': 'Item deleted'}
 
   
     def put(self, name):
         data = Item.parser.parse_args()
         
-        item = next(filter(lambda x: x['name'] == name, items), None)
+        item = ItemModel.find_item(name)
+        updated_item = {'name':name,'price': data['price']}
+
         if item is None:
-            item = {'name': name, 'price': data['price']}
-            items.append(item)
+            obj = ItemModel(name,data['price'])
+            try:
+                obj.insert()
+            except:
+                return {"message":"an error occured inserting an item"}, 500
         else:
-            item.update(data)
-        return item
+            try:
+                Item.update(updated_item)
+            except:
+                return {"message":"an error occured updating the item"}, 500
+        return updated_item
+
+    @classmethod
+    def update(cls, item):
+        connection = sqlite3.connect('data.db')
+        cursor = connection.cursor()
+        query = "UPDATE items SET price=? WHERE name=?"
+        cursor.execute(query, (item['price'], item['name']))
+        connection.commit()
+        connection.close()
 
 class ItemList(Resource):
+
     def get(self):
-        return {'items': items}
+        connection = sqlite3.connect('data.db')
+        cursor = connection.cursor()
+        query = "SELECT * FROM items"
+        result = cursor.execute(query)
+        items = []
+        for row in result:
+            items.append({'name': row[0], 'price':row[1]})
+        connection.close()
+
+        return {'items':items}
